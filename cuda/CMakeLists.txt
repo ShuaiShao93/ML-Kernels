@@ -10,6 +10,10 @@ add_library(gemm STATIC
 )
 set_property(TARGET gemm PROPERTY CUDA_ARCHITECTURES native)
 
+# For source view in ncu
+target_compile_options(gemm PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:
+                       --generate-line-info>)
+
 add_executable(gemm_test
     test/gemm_test.cpp
 )

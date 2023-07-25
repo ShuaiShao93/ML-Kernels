@@ -5,7 +5,8 @@
 #include <vector>
 
 int main(int argc, char **argv) {
-  int M = 400, N = 500, K = 128;
+  // FLOPS = 2*4092^3 + 4092^2 = 137 GFLOPS
+  int M = 4000, N = 4000, K = 4092;
   float *a_ptr, *b_ptr, *c_ptr;
   assert(cudaMalloc(&a_ptr, M * K * sizeof(float)) == cudaSuccess);
   assert(cudaMalloc(&b_ptr, K * N * sizeof(float)) == cudaSuccess);
@@ -27,7 +28,7 @@ int main(int argc, char **argv) {
   assert(cudaMemcpyAsync(host_c.data(), c_ptr, M * N * sizeof(float),
                          cudaMemcpyDeviceToHost, stream) == cudaSuccess);
   assert(cudaStreamSynchronize(stream) == cudaSuccess);
-  assert(host_c[0] == 128);
+  assert(host_c[0] == 4092);
 
   std::cout << "Passed" << std::endl;
 }
