@@ -1,5 +1,8 @@
+#include "gemm.h"
 
-__global__ void gemm_kernel(const float *a_ptr, const float *b_ptr,
+#include <iostream>
+
+__global__ void gemm_kernel_0(const float *a_ptr, const float *b_ptr,
                             float *c_ptr, int M, int N, int K, int stride_am,
                             int stride_ak, int stride_bk, int stride_bn,
                             int stride_cm, int stride_cn) {
@@ -20,10 +23,19 @@ __global__ void gemm_kernel(const float *a_ptr, const float *b_ptr,
 
 void gemm(const float *a_ptr, const float *b_ptr, float *c_ptr, int M, int N,
           int K, int stride_am, int stride_ak, int stride_bk, int stride_bn,
-          int stride_cm, int stride_cn, cudaStream_t stream) {
-  dim3 blockDim(32, 32, 1);
-  dim3 gridDim((M + 32 - 1) / 32, (N + 32 - 1) / 32, 1);
-  gemm_kernel<<<gridDim, blockDim, 0, stream>>>(
-      a_ptr, b_ptr, c_ptr, M, N, K, stride_am, stride_ak, stride_bk, stride_bn,
-      stride_cm, stride_cn);
+          int stride_cm, int stride_cn, cudaStream_t stream, int kernel_id) {
+  switch (kernel_id){
+   case 0: {
+    dim3 blockDim(32, 32, 1);
+    dim3 gridDim((M + 32 - 1) / 32, (N + 32 - 1) / 32, 1);
+    std::cout << "Using kernel " << kernel_id << ": naiive" << std::endl;
+    gemm_kernel_0<<<gridDim, blockDim, 0, stream>>>(
+        a_ptr, b_ptr, c_ptr, M, N, K, stride_am, stride_ak, stride_bk, stride_bn,
+        stride_cm, stride_cn);
+    break;
+   }
+
+   default:
+    std::cerr << "Invalid kernel id " << kernel_id;
+  }
 }
