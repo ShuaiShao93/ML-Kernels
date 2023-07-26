@@ -22,7 +22,7 @@ int main(int argc, char **argv) {
   assert(cudaMemcpyAsync(b_ptr, host_b.data(), K * N * sizeof(float),
                          cudaMemcpyHostToDevice, stream) == cudaSuccess);
 
-  int kernel_id = 0;
+  int kernel_id = 1;
   gemm(a_ptr, b_ptr, c_ptr, M, N, K, K, 1, N, 1, N, 1, stream, kernel_id);
 
   std::vector<float> host_c(M * N);
