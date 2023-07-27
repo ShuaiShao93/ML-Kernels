@@ -22,13 +22,25 @@ int main(int argc, char **argv) {
   assert(cudaMemcpyAsync(b_ptr, host_b.data(), K * N * sizeof(float),
                          cudaMemcpyHostToDevice, stream) == cudaSuccess);
 
-  int kernel_id = 1;
+  int kernel_id = 2;
   gemm(a_ptr, b_ptr, c_ptr, M, N, K, K, 1, N, 1, N, 1, stream, kernel_id);
+
+  auto status = cudaPeekAtLastError();
+  if (status != cudaSuccess) {
+    std::cerr << "Kernel failed: " << status << std::endl;
+    assert(status == cudaSuccess);
+  }
+  status = cudaStreamSynchronize(stream);
+  if (status != cudaSuccess) {
+    std::cerr << "Kernel failed: " << status << std::endl;
+    assert(status == cudaSuccess);
+  }
 
   std::vector<float> host_c(M * N);
   assert(cudaMemcpyAsync(host_c.data(), c_ptr, M * N * sizeof(float),
                          cudaMemcpyDeviceToHost, stream) == cudaSuccess);
   assert(cudaStreamSynchronize(stream) == cudaSuccess);
+  std::cout << "host_c[0] " << host_c[0] << std::endl;
   assert(host_c[0] == 4092);
 
   std::cout << "Passed" << std::endl;
