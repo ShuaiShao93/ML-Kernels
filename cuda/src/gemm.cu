@@ -61,11 +61,11 @@ __global__ void gemm_kernel_2(const float *a_ptr, const float *b_ptr,
   float accu = 0;
 
   for (int block_k = 0; block_k < K; block_k += BLOCK_SIZE_K) {
-    if (thread_m < BLOCK_SIZE_M && thread_n < BLOCK_SIZE_K) {
+    if (thread_n < BLOCK_SIZE_K) {
       as[thread_m * BLOCK_SIZE_K + thread_n] =
           a_ptr[thread_m * stride_am + thread_n * stride_ak];
     }
-    if (thread_m < BLOCK_SIZE_K && thread_n < BLOCK_SIZE_N) {
+    if (thread_m < BLOCK_SIZE_K) {
       bs[thread_m * BLOCK_SIZE_N + thread_n] =
           b_ptr[thread_m * stride_bk + thread_n * stride_bn];
     }
@@ -75,8 +75,16 @@ __global__ void gemm_kernel_2(const float *a_ptr, const float *b_ptr,
 
     __syncthreads();
 
-    for (int k = 0; k < BLOCK_SIZE_K; k++) {
-      if (thread_m < BLOCK_SIZE_M && thread_n < BLOCK_SIZE_N) {
+    // Very critical. In first branch, the loop can be unrolled.
+    // We can also have an if condition in the loop, but it would be
+    // worse because of the branch.
+    if (block_k + BLOCK_SIZE_K < K) {
+      for (int k = 0; k < BLOCK_SIZE_K; k++) {
+        accu +=
+            as[thread_m * BLOCK_SIZE_K + k] * bs[k * BLOCK_SIZE_N + thread_n];
+      }
+    } else {
+      for (int k = 0; k < K - block_k; k++) {
         accu +=
             as[thread_m * BLOCK_SIZE_K + k] * bs[k * BLOCK_SIZE_N + thread_n];
       }
@@ -93,6 +101,11 @@ __global__ void gemm_kernel_2(const float *a_ptr, const float *b_ptr,
 void gemm(const float *a_ptr, const float *b_ptr, float *c_ptr, int M, int N,
           int K, int stride_am, int stride_ak, int stride_bk, int stride_bn,
           int stride_cm, int stride_cn, cudaStream_t stream, int kernel_id) {
+  cudaEvent_t start, end;
+  cudaEventCreate(&start);
+  cudaEventCreate(&end);
+  cudaEventRecord(start, stream);
+
   switch (kernel_id) {
   case 0: {
     std::cout << "Using kernel " << kernel_id << ": naiive" << std::endl;
@@ -129,4 +142,10 @@ void gemm(const float *a_ptr, const float *b_ptr, float *c_ptr, int M, int N,
   default:
     std::cerr << "Invalid kernel id " << kernel_id;
   }
+
+  cudaEventRecord(end, stream);
+  cudaEventSynchronize(end);
+  float time;
+  cudaEventElapsedTime(&time, start, end);
+  std::cout << "Elaspsed time: " << time << std::endl;
 }
