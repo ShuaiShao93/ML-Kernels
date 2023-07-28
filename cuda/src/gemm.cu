@@ -56,17 +56,17 @@ __global__ void gemm_kernel_2(const float *a_ptr, const float *b_ptr,
   b_ptr += block_n * stride_bn;
   c_ptr += block_m * stride_cm + block_n * stride_cn;
 
-  __shared__ float as[BLOCK_SIZE_M * BLOCK_SIZE_K],
-      bs[BLOCK_SIZE_K * BLOCK_SIZE_N];
+  __shared__ float as[BLOCK_SIZE_M][BLOCK_SIZE_K],
+      bs[BLOCK_SIZE_K][BLOCK_SIZE_N];
   float accu = 0;
 
   for (int block_k = 0; block_k < K; block_k += BLOCK_SIZE_K) {
     if (thread_n < BLOCK_SIZE_K) {
-      as[thread_m * BLOCK_SIZE_K + thread_n] =
+      as[thread_m][thread_n] =
           a_ptr[thread_m * stride_am + thread_n * stride_ak];
     }
     if (thread_m < BLOCK_SIZE_K) {
-      bs[thread_m * BLOCK_SIZE_N + thread_n] =
+      bs[thread_m][thread_n] =
           b_ptr[thread_m * stride_bk + thread_n * stride_bn];
     }
 
@@ -80,13 +80,11 @@ __global__ void gemm_kernel_2(const float *a_ptr, const float *b_ptr,
     // worse because of the branch.
     if (block_k + BLOCK_SIZE_K < K) {
       for (int k = 0; k < BLOCK_SIZE_K; k++) {
-        accu +=
-            as[thread_m * BLOCK_SIZE_K + k] * bs[k * BLOCK_SIZE_N + thread_n];
+        accu += as[thread_m][k] * bs[k][thread_n];
       }
     } else {
       for (int k = 0; k < K - block_k; k++) {
-        accu +=
-            as[thread_m * BLOCK_SIZE_K + k] * bs[k * BLOCK_SIZE_N + thread_n];
+        accu += as[thread_m][k] * bs[k][thread_n];
       }
     }
 
