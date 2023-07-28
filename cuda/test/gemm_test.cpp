@@ -33,6 +33,10 @@ int main(int argc, char **argv) {
   bool VERIFY = false;
   // FLOPS = 2*4092^3 + 4092^2 = 137 GFLOPS
   int M = 4000, N = 4000, K = 4092;
+
+  if (VERIFY) {
+    M = 400, N = 400, K = 512;
+  }
   float *a_ptr, *b_ptr, *c_ptr, *ref_c_ptr;
   assert(cudaMalloc(&a_ptr, M * K * sizeof(float)) == cudaSuccess);
   assert(cudaMalloc(&b_ptr, K * N * sizeof(float)) == cudaSuccess);
@@ -65,7 +69,7 @@ int main(int argc, char **argv) {
   assert(cudaMemcpyAsync(b_ptr, host_b, K * N * sizeof(float),
                          cudaMemcpyHostToDevice, stream) == cudaSuccess);
 
-  int kernel_id = 2;
+  int kernel_id = 3;
   gemm(a_ptr, b_ptr, c_ptr, M, N, K, K, 1, N, 1, N, 1, stream, kernel_id);
 
   auto status = cudaPeekAtLastError();
