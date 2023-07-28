@@ -91,7 +91,7 @@ __global__ void gemm_kernel_2(const float *a_ptr, const float *b_ptr,
     __syncthreads();
   }
 
-  if (thread_m < BLOCK_SIZE_M && thread_n < BLOCK_SIZE_N) {
+  if (block_m + thread_m < M && block_n + thread_n < N) {
     c_ptr[thread_m * stride_cm + thread_n * stride_cn] = accu;
   }
 }
