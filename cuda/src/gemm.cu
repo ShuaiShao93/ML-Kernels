@@ -185,11 +185,11 @@ void gemm(const float *a_ptr, const float *b_ptr, float *c_ptr, int M, int N,
     break;
   }
   case 3: {
-    constexpr int bm = 64, bn = 64, bk = 8, tm = 8;
+    constexpr int bm = 64, bn = 32, bk = 8, tm = 8;
     std::cout << "Using kernel " << kernel_id << ": Register 1D Cache" << std::endl;
     dim3 gridDim((N + bn - 1) / bn, (M + bm - 1) / bm);
     dim3 blockDim(bn, bm / tm);
-    gemm_kernel_3<bm, bn, bk, tm><<<gridDim, blockDim>>>(
+    gemm_kernel_3<bm, bn, bk, tm><<<gridDim, blockDim, 0, stream>>>(
         a_ptr, b_ptr, c_ptr, M, N, K, stride_am, stride_ak, stride_bk,
         stride_bn, stride_cm, stride_cn);
     break;
