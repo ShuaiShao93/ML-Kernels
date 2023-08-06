@@ -97,6 +97,8 @@ __global__ void gemm_kernel_2(const float *a_ptr, const float *b_ptr,
   }
 }
 
+// Warp occupancy may be low, but it doesn't matter, because the bottleneck is
+// shared memory access and having less threads is not a big issue.
 template <int BM, int BN, int BK, int TM>
 __global__ void gemm_kernel_3(const float *A, const float *B, float *C, int M,
                               int N, int K, int stride_am, int stride_ak,
