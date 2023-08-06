@@ -103,43 +103,46 @@ __global__ void gemm_kernel_3(const float *A, const float *B, float *C, int M,
                               int stride_bk, int stride_bn, int stride_cm,
                               int stride_cn) {
   int block_m = blockIdx.y * BM, block_n = blockIdx.x * BN;
-  int thread_m = threadIdx.y, thread_n = threadIdx.x;
+  int thread_m = threadIdx.x / BN, thread_n = threadIdx.x % BN;
+  int num_threads = BM * BN / TM;
   A += block_m * stride_am;
   B += block_n * stride_bn;
   C += block_m * stride_cm + block_n * stride_cn;
 
   __shared__ float As[BM][BK], Bs[BK][BN];
-  float accum[TM] = {0.};
-  // Assumes thread block size M/N are not less than BK
-  for (int block_k = 0; block_k < K; block_k += BK) {
-    for (int m = thread_m * TM; m < thread_m * TM + TM; m += 1) {
-      if (thread_n < BK) {
-        As[m][thread_n] = A[m * stride_am + thread_n * stride_ak];
-      }
-    }
-    if (thread_m < BK) {
-      Bs[thread_m][thread_n] = B[thread_m * stride_bk + thread_n * stride_bn];
-    }
 
+  // Uses different thread grid for reading As and Bs.
+  int as_thread_m = threadIdx.x / BK, as_thread_k = threadIdx.x % BK;
+  int as_stride_m = num_threads / BK;
+
+  int bs_thread_k = threadIdx.x / BN, bs_thread_n = threadIdx.x % BN;
+  int bs_stride_k = num_threads / BN;
+
+  float tmp[TM] = {0.};
+  for (int block_k = 0; block_k < K; block_k += BK) {
+    for (int m = as_thread_m; m < BM; m += as_stride_m) {
+      As[m][as_thread_k] = A[m * stride_am + as_thread_k * stride_ak];
+    }
+    for (int k = bs_thread_k; k < BK; k += bs_stride_k) {
+      Bs[k][bs_thread_n] = B[k * stride_bk + bs_thread_n * stride_bn];
+    }
     __syncthreads();
 
-    A += BK * stride_ak;
-    B += BK * stride_bk;
+    A += stride_ak * BK;
+    B += stride_bk * BK;
 
-    // Assumes K is multiple of BK.
-    for (int k = 0; k < BK; k += 1) {
-      float b_tmp = Bs[k][thread_n];
+    for (int k = 0; k < BK; k++) {
+      float tmp_b = Bs[k][thread_n];
       for (int m = thread_m * TM; m < thread_m * TM + TM; m++) {
-        accum[m - thread_m * TM] += As[m][k] * b_tmp;
+        tmp[m - thread_m * TM] += As[m][k] * tmp_b;
       }
     }
-
     __syncthreads();
   }
 
   for (int m = thread_m * TM; m < thread_m * TM + TM; m++) {
     if (block_m + m < M && block_n + thread_n < N) {
-      C[m * stride_cm + thread_n * stride_cn] = accum[m - thread_m * TM];
+      C[m * stride_cm + thread_n * stride_cn] = tmp[m - thread_m * TM];
     }
   }
 }
@@ -185,10 +188,11 @@ void gemm(const float *a_ptr, const float *b_ptr, float *c_ptr, int M, int N,
     break;
   }
   case 3: {
-    constexpr int bm = 64, bn = 32, bk = 8, tm = 8;
-    std::cout << "Using kernel " << kernel_id << ": Register 1D Cache" << std::endl;
+    constexpr int bm = 64, bn = 64, bk = 8, tm = 8;
+    std::cout << "Using kernel " << kernel_id << ": Register 1D Cache"
+              << std::endl;
     dim3 gridDim((N + bn - 1) / bn, (M + bm - 1) / bm);
-    dim3 blockDim(bn, bm / tm);
+    dim3 blockDim(bm * bn / tm);
     gemm_kernel_3<bm, bn, bk, tm><<<gridDim, blockDim, 0, stream>>>(
         a_ptr, b_ptr, c_ptr, M, N, K, stride_am, stride_ak, stride_bk,
         stride_bn, stride_cm, stride_cn);
