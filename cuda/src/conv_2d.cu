@@ -35,14 +35,15 @@ __global__ void conv2d_kernel(const float *A, const float *B, float *C, int N,
     for (int kw = 0; kw < kW; kw++) {
       for (int in_c = 0; in_c < in_C; in_c++) {
         float a;
-        if (h + kh < 0 || h + kh >= H || w + kw < 0 || w + kw >= W) {
+        if (h - kH / 2 + kh < 0 || h - kH / 2 + kh >= H ||
+            w - kW / 2 + kw < 0 || w - kW / 2 + kw >= W) {
           a = 0;
         } else {
-          a = A[n * stride_an + (h + kh) * stride_ah + (w + kw) * stride_aw +
-                in_c * stride_aic];
+          a = A[n * stride_an + (h - kH / 2 + kh) * stride_ah +
+                (w - kW / 2 + kw) * stride_aw + in_c * stride_aic];
         }
-        float b = B[out_c * stride_boc + (kh - kW / 2) * stride_bkh +
-                    (kw - kW / 2) * stride_bkw + in_c * stride_bic];
+        float b = B[out_c * stride_boc + kh * stride_bkh + kw * stride_bkw +
+                    in_c * stride_bic];
         accum += a * b;
       }
     }
