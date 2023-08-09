@@ -149,6 +149,70 @@ __global__ void gemm_kernel_3(const float *A, const float *B, float *C, int M,
   }
 }
 
+template <int BM, int BN, int BK, int TM, int TN>
+__global__ void gemm_kernel_4(const float *A, const float *B, float *C, int M,
+                              int N, int K, int stride_am, int stride_ak,
+                              int stride_bk, int stride_bn, int stride_cm,
+                              int stride_cn) {
+  int blockm_offset = blockIdx.y * BM, blockn_offset = blockIdx.x * BN;
+  A += blockm_offset * stride_am;
+  B += blockn_offset * stride_bn;
+  C += blockm_offset * stride_cm + blockn_offset * stride_cn;
+
+  __shared__ float As[BM][BK], Bs[BK][BN];
+
+  int num_threads_m = BM / TM, num_threads_n = BN / TN;
+  int num_threads = num_threads_m * num_threads_n;
+
+  int as_thread_m = threadIdx.x / BK, as_thread_k = threadIdx.x % BK;
+  int as_stride_m = num_threads / BK;
+
+  int bs_thread_k = threadIdx.x / BN, bs_thread_n = threadIdx.x % BN;
+  int bs_stride_k = num_threads / BN;
+
+  int thread_m = threadIdx.x / num_threads_n,
+      thread_n = threadIdx.x % num_threads_n;
+  float accum[TM][TN] = {0.};
+  for (int blockk_offset = 0; blockk_offset < K; blockk_offset += BK) {
+#pragma unroll
+    for (int as_m = as_thread_m; as_m < BM; as_m += as_stride_m) {
+      As[as_m][as_thread_k] = A[as_m * stride_am + as_thread_k * stride_ak];
+    }
+#pragma unroll
+    for (int bs_k = bs_thread_k; bs_k < BK; bs_k += bs_stride_k) {
+      Bs[bs_k][bs_thread_n] = B[bs_k * stride_bk + bs_thread_n * stride_bn];
+    }
+
+    __syncthreads();
+
+    A += BK * stride_ak;
+    B += BK * stride_bk;
+
+#pragma unroll
+    for (int k = 0; k < BK; k++) {
+#pragma unroll
+      for (int m = thread_m * TM; m < thread_m * TM + TM; m++) {
+#pragma unroll
+        for (int n = thread_n * TN; n < thread_n * TN + TN; n++) {
+          accum[m - thread_m * TM][n - thread_n * TN] += As[m][k] * Bs[k][n];
+        }
+      }
+    }
+
+    __syncthreads();
+  }
+
+#pragma unroll
+  for (int m = thread_m * TM; m < thread_m * TM + TM; m++) {
+    for (int n = thread_n * TN; n < thread_n * TN + TN; n++) {
+      if (blockm_offset + m < M && blockn_offset + n < N) {
+        C[m * stride_cm + n * stride_cn] =
+            accum[m - thread_m * TM][n - thread_n * TN];
+      }
+    }
+  }
+}
+
 void gemm(const float *a_ptr, const float *b_ptr, float *c_ptr, int M, int N,
           int K, int stride_am, int stride_ak, int stride_bk, int stride_bn,
           int stride_cm, int stride_cn, cudaStream_t stream, int kernel_id) {
@@ -196,6 +260,17 @@ void gemm(const float *a_ptr, const float *b_ptr, float *c_ptr, int M, int N,
     dim3 gridDim((N + bn - 1) / bn, (M + bm - 1) / bm);
     dim3 blockDim(bm * bn / tm);
     gemm_kernel_3<bm, bn, bk, tm><<<gridDim, blockDim, 0, stream>>>(
+        a_ptr, b_ptr, c_ptr, M, N, K, stride_am, stride_ak, stride_bk,
+        stride_bn, stride_cm, stride_cn);
+    break;
+  }
+  case 4: {
+    constexpr int bm = 128, bn = 128, bk = 8, tm = 8, tn = 8;
+    std::cout << "Using kernel " << kernel_id << ": Register 2D Cache"
+              << std::endl;
+    dim3 gridDim((N + bn - 1) / bn, (M + bm - 1) / bm);
+    dim3 blockDim(bm * bn / tm / tn);
+    gemm_kernel_4<bm, bn, bk, tm, tn><<<gridDim, blockDim, 0, stream>>>(
         a_ptr, b_ptr, c_ptr, M, N, K, stride_am, stride_ak, stride_bk,
         stride_bn, stride_cm, stride_cn);
     break;
