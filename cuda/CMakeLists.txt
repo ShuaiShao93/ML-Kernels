@@ -4,6 +4,8 @@ project(cuda_kernels LANGUAGES CXX CUDA)
 find_package(CUDA REQUIRED)
 include_directories("${CUDA_INCLUDE_DIRS}")
 
+set(CUDNN_LIBRARY_PATH "/home/shshao/miniconda3/lib/python3.8/site-packages/nvidia/cudnn/lib/libcudnn.so.8")
+
 add_library(gemm STATIC
     src/gemm.h
     src/gemm.cu
@@ -36,3 +38,10 @@ add_executable(conv2d_test
     test/conv2d_test.cpp
 )
 target_link_libraries(conv2d_test PRIVATE conv2d)
+
+
+add_executable(conv3d_test
+    test/utils.h
+    test/conv3d_test.cpp
+)
+target_link_libraries(conv3d_test PRIVATE ${CUDA_LIBRARIES} ${CUDNN_LIBRARY_PATH})
