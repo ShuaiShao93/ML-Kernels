@@ -1,5 +1,6 @@
 #include "utils.h"
 #include <cassert>
+#include <cstdio>
 #include <cuda_runtime.h>
 #include <cudnn.h>
 #include <iostream>
@@ -116,9 +117,9 @@ int main(int argc, char **argv) {
   randomize_matrix(host_B, size_B);
 
   assert(cudaMemcpyAsync(A, host_A, size_A * sizeof(float),
-                         cudaMemcpyHostToDevice) == cudaSuccess);
+                         cudaMemcpyHostToDevice, stream) == cudaSuccess);
   assert(cudaMemcpyAsync(B, host_B, size_B * sizeof(float),
-                         cudaMemcpyHostToDevice) == cudaSuccess);
+                         cudaMemcpyHostToDevice, stream) == cudaSuccess);
 
   float alpha = 3.2, beta = 0;
   CudnnDepthwiseConv3D(A, B, C, N, D, H, W, kD, kH, kW, in_C, alpha, beta,
@@ -166,8 +167,7 @@ int main(int argc, char **argv) {
                                  ic * stride_aic];
                     }
                     accum += a * host_B[oc * stride_boc + kd * stride_bkd +
-                                        kh * stride_bkh + kw * stride_bkw +
-                                        ic * stride_bic];
+                                        kh * stride_bkh + kw * stride_bkw];
                   }
                 }
               }

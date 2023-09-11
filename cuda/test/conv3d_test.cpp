@@ -115,9 +115,9 @@ int main(int argc, char **argv) {
   randomize_matrix(host_B, size_B);
 
   assert(cudaMemcpyAsync(A, host_A, size_A * sizeof(float),
-                         cudaMemcpyHostToDevice) == cudaSuccess);
+                         cudaMemcpyHostToDevice, stream) == cudaSuccess);
   assert(cudaMemcpyAsync(B, host_B, size_B * sizeof(float),
-                         cudaMemcpyHostToDevice) == cudaSuccess);
+                         cudaMemcpyHostToDevice, stream) == cudaSuccess);
 
   float alpha = 3.2, beta = 0;
   CudnnConv3D(A, B, C, N, D, H, W, kD, kH, kW, in_C, out_C, alpha, beta,
