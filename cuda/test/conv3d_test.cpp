@@ -27,6 +27,7 @@ void CudnnConv3D(const float *A, const float *B, float *C, int N, int D, int H,
   size_t workspace_size;
 
   cudnnCreate(&handle);
+  CHECK_CUDNN(cudnnSetStream(handle, stream));
   cudnnCreateTensorDescriptor(&A_desc);
   cudnnCreateTensorDescriptor(&C_desc);
   cudnnCreateFilterDescriptor(&B_desc);
@@ -56,15 +57,32 @@ void CudnnConv3D(const float *A, const float *B, float *C, int N, int D, int H,
   if (workspace_size > 0) {
     assert(cudaMalloc(&workspace, workspace_size) == cudaSuccess);
   }
+
+  // Warm up.
   CHECK_CUDNN(cudnnConvolutionForward(handle, &alpha, A_desc, A, B_desc, B,
                                       conv_desc, algo, workspace,
                                       workspace_size, &beta, C_desc, C));
-
   auto status = cudaPeekAtLastError();
   if (status != cudaSuccess) {
     std::cerr << "Kernel failed: " << status << std::endl;
     assert(status == cudaSuccess);
   }
+  assert(cudaStreamSynchronize(stream) == cudaSuccess);
+
+  cudaEvent_t start, end;
+  cudaEventCreate(&start);
+  cudaEventCreate(&end);
+  cudaEventRecord(start, stream);
+
+  CHECK_CUDNN(cudnnConvolutionForward(handle, &alpha, A_desc, A, B_desc, B,
+                                      conv_desc, algo, workspace,
+                                      workspace_size, &beta, C_desc, C));
+
+  cudaEventRecord(end, stream);
+  assert(cudaEventSynchronize(end) == cudaSuccess);
+  float time;
+  cudaEventElapsedTime(&time, start, end);
+  std::cout << "Elapsed time: " << time << " ms" << std::endl;
 
   assert(cudaStreamSynchronize(stream) == cudaSuccess);
 

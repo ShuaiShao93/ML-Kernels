@@ -4,7 +4,7 @@ project(cuda_kernels LANGUAGES CXX CUDA)
 find_package(CUDA REQUIRED)
 include_directories("${CUDA_INCLUDE_DIRS}")
 
-set(CUDNN_LIBRARY_PATH "/home/shshao/miniconda3/lib/python3.8/site-packages/nvidia/cudnn/lib/libcudnn.so.8")
+set(CUDNN_LIBRARY_PATH "/usr/lib/x86_64-linux-gnu/libcudnn.so.8")
 
 add_library(gemm STATIC
     src/gemm.h
