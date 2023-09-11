@@ -45,3 +45,9 @@ add_executable(conv3d_test
     test/conv3d_test.cpp
 )
 target_link_libraries(conv3d_test PRIVATE ${CUDA_LIBRARIES} ${CUDNN_LIBRARY_PATH})
+
+add_executable(depthwise_conv3d_test
+    test/utils.h
+    test/depthwise_conv3d_test.cpp
+)
+target_link_libraries(depthwise_conv3d_test PRIVATE ${CUDA_LIBRARIES} ${CUDNN_LIBRARY_PATH})
