@@ -34,16 +34,15 @@ void CudnnConv3D(const float *A, const float *B, float *C, int N, int D, int H,
   cudnnCreateConvolutionDescriptor(&conv_desc);
 
   int dims_A[5] = {N, in_C, D, H, W};
-  int strides_A[5] = {D * H * W * in_C, H * W * in_C, W * in_C, in_C, 1};
-  CHECK_CUDNN(cudnnSetTensorNdDescriptorEx(A_desc, CUDNN_TENSOR_NHWC,
+  CHECK_CUDNN(cudnnSetTensorNdDescriptorEx(A_desc, CUDNN_TENSOR_NCHW,
                                            CUDNN_DATA_FLOAT, 5, dims_A));
 
   int dims_B[5] = {out_C, in_C, kD, kH, kW};
   CHECK_CUDNN(cudnnSetFilterNdDescriptor(B_desc, CUDNN_DATA_FLOAT,
-                                         CUDNN_TENSOR_NHWC, 5, dims_B));
+                                         CUDNN_TENSOR_NCHW, 5, dims_B));
 
   int dims_C[5] = {N, out_C, D, H, W};
-  CHECK_CUDNN(cudnnSetTensorNdDescriptorEx(C_desc, CUDNN_TENSOR_NHWC,
+  CHECK_CUDNN(cudnnSetTensorNdDescriptorEx(C_desc, CUDNN_TENSOR_NCHW,
                                            CUDNN_DATA_FLOAT, 5, dims_C));
 
   int pads[3] = {1, 1, 1};
@@ -125,23 +124,23 @@ int main(int argc, char **argv) {
 
   if (VERIFY) {
     float *ref_c = new float[size_C];
-    int stride_an = D * H * W * in_C;
-    int stride_ad = H * W * in_C;
-    int stride_ah = W * in_C;
-    int stride_aw = in_C;
-    int stride_aic = 1;
+    int stride_an = in_C * D * H * W;
+    int stride_aic = D * H * W;
+    int stride_ad = H * W;
+    int stride_ah = W;
+    int stride_aw = 1;
 
-    int stride_boc = kD * kH * kW * in_C;
-    int stride_bkd = kH * kW * in_C;
-    int stride_bkh = kW * in_C;
-    int stride_bkw = in_C;
-    int stride_bic = 1;
+    int stride_boc = in_C * kD * kH * kW;
+    int stride_bic = kD * kH * kW;
+    int stride_bkd = kH * kW;
+    int stride_bkh = kW;
+    int stride_bkw = 1;
 
-    int stride_cn = D * H * W * out_C;
-    int stride_cd = H * W * out_C;
-    int stride_ch = W * out_C;
-    int stride_cw = out_C;
-    int stride_coc = 1;
+    int stride_cn = out_C * D * H * W;
+    int stride_coc = D * H * W;
+    int stride_cd = H * W;
+    int stride_ch = W;
+    int stride_cw = 1;
 
     for (int n = 0; n < N; n++) {
       for (int d = 0; d < D; d++) {
