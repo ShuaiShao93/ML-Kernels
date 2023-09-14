@@ -59,7 +59,17 @@ for name in output_names:
     bindings[output_idx] = int(outputs[name])
 
 stream = cuda.Stream()
+# warm up
 context.execute_async_v2(bindings, stream.handle)
+
+start, end = cuda.Event(), cuda.Event()
+start.record()
+context.execute_async_v2(bindings, stream.handle)
+end.record()
+end.synchronize()
+ms = start.time_till(end)
+print("Time Elapsed", ms)
+
 stream.synchronize()
 
 print("DONE")
