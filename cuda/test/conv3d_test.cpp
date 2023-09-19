@@ -41,16 +41,20 @@ void CudnnConv3D(const float *A, const float *B, float *C, int N, int D, int H,
   CHECK_CUDNN(cudnnSetFilterNdDescriptor(B_desc, CUDNN_DATA_FLOAT,
                                          CUDNN_TENSOR_NCHW, 5, dims_B));
 
-  int dims_C[5] = {N, out_C, D, H, W};
-  CHECK_CUDNN(cudnnSetTensorNdDescriptorEx(C_desc, CUDNN_TENSOR_NCHW,
-                                           CUDNN_DATA_FLOAT, 5, dims_C));
-
   int pads[3] = {1, 1, 1};
   int strides[3] = {1, 1, 1};
   int dilations[3] = {1, 1, 1};
   CHECK_CUDNN(cudnnSetConvolutionNdDescriptor(
       conv_desc, 3, pads, strides, dilations, CUDNN_CROSS_CORRELATION,
       CUDNN_DATA_FLOAT));
+  CHECK_CUDNN(cudnnSetConvolutionMathType(conv_desc, CUDNN_TENSOR_OP_MATH));
+
+  int dims_C[5];
+  CHECK_CUDNN(cudnnGetConvolutionNdForwardOutputDim(conv_desc, A_desc, B_desc,
+                                                    5, dims_C));
+  CHECK_CUDNN(cudnnSetTensorNdDescriptorEx(C_desc, CUDNN_TENSOR_NCHW,
+                                           CUDNN_DATA_FLOAT, 5, dims_C));
+
   CHECK_CUDNN(cudnnGetConvolutionForwardWorkspaceSize(
       handle, A_desc, B_desc, conv_desc, C_desc, algo, &workspace_size));
   if (workspace_size > 0) {
