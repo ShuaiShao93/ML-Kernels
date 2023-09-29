@@ -29,8 +29,8 @@ network = builder.create_network(EXPLICIT_BATCH)
 input = network.add_input(name="input", shape=INPUT_SHAPE, dtype=trt.float32)
 conv3d = network.add_convolution_nd(
     input, OC, [KD, KH, KW], np.ones(KERNEL_SHAPE, dtype=np.float32))
-# Can't be 3d padding?
-# conv3d.padding = (1, 1, 1)
+conv3d.padding_nd = (1, 1, 1)
+conv3d.stride_nd = (1, 1, 1)
 output = conv3d.get_output(0)
 output.name = "output"
 network.mark_output(output)
