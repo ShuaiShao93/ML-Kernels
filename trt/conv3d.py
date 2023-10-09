@@ -1,6 +1,6 @@
 """
 nsys profile --force-overwrite true -w true -t cublas,cudnn,cuda,nvtx,osrt -s cpu -o /tmp/trt_conv3d python trt/conv3d.py
-ncu -f -k regex:.*xmma_fprop_implicit_gemm.* --set=detailed --target-processes all -o /tmp/trt_conv3d python trt/conv3d.py
+ncu -f --set=detailed --target-processes all -o /tmp/trt_conv3d python trt/conv3d.py
 """
 
 import tensorrt as trt
@@ -9,6 +9,8 @@ import os
 
 import pycuda.driver as cuda
 import pycuda.autoinit
+
+DEPTHWISE = False
 
 N = 1
 IC = 64
@@ -24,7 +26,7 @@ INPUT_SHAPE = (N, IC, D, H, W)
 INPUT_SIZE = N * IC * D * H * W
 OUTPUT_SHAPE = (N, OC, D, H, W)
 OUTPUT_SIZE = N * OC * D * H * W
-KERNEL_SHAPE = (OC, IC, KD, KH, KW)
+KERNEL_SHAPE = (OC, 1, KD, KH, KW) if DEPTHWISE else (OC, IC, KD, KH, KW)
 
 EXPLICIT_BATCH = 1 << (int)(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH)
 
@@ -38,6 +40,8 @@ conv3d = network.add_convolution_nd(
     input, OC, [KD, KH, KW], np.ones(KERNEL_SHAPE, dtype=np.float16))
 conv3d.padding_nd = (1, 1, 1)
 conv3d.stride_nd = (1, 1, 1)
+if DEPTHWISE:
+    conv3d.num_groups = IC
 
 # Useless with trt.BuilderFlag.FP16 below
 # conv3d.precision = trt.float16
@@ -47,7 +51,7 @@ conv3d.stride_nd = (1, 1, 1)
 
 output = conv3d.get_output(0)
 output.name = "output"
-output.dtype = trt.DataType.HALF # required
+output.dtype = trt.DataType.HALF  # required
 output.allowed_formats = 1 << int(trt.TensorFormat.DHWC8)
 network.mark_output(output)
 assert output.shape == OUTPUT_SHAPE
@@ -71,7 +75,7 @@ inspector = engine.create_engine_inspector()
 # Row major means channel first, channel major means channel last.
 print('trt_engine layer_info:\n{}'.format(
     inspector.get_engine_information(trt.LayerInformationFormat.JSON)
-    ))
+))
 
 timing_cache = config.get_timing_cache()
 with timing_cache.serialize() as buffer:
