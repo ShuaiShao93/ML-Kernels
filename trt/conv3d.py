@@ -1,5 +1,11 @@
+"""
+nsys profile --force-overwrite true -w true -t cublas,cudnn,cuda,nvtx,osrt -s cpu -o /tmp/trt_conv3d python trt/conv3d.py
+ncu -f -k regex:.*xmma_fprop_implicit_gemm.* --set=detailed --target-processes all -o /tmp/trt_conv3d python trt/conv3d.py
+"""
+
 import tensorrt as trt
 import numpy as np
+import os
 
 import pycuda.driver as cuda
 import pycuda.autoinit
@@ -51,12 +57,26 @@ config.set_flag(trt.BuilderFlag.FP16)
 config.set_flag(trt.BuilderFlag.DIRECT_IO)
 config.profiling_verbosity = trt.ProfilingVerbosity.VERBOSE
 
+TIMING_CACHE_FILE = "/tmp/trt_conv3d.timing_cache"
+if os.path.exists(TIMING_CACHE_FILE):
+    with open(TIMING_CACHE_FILE, "rb") as f:
+        timing_cache = config.create_timing_cache(f.read())
+        config.set_timing_cache(timing_cache, ignore_mismatch=False)
+else:
+    timing_cache = config.create_timing_cache(b"")
+    config.set_timing_cache(timing_cache, ignore_mismatch=False)
+
 engine = builder.build_engine(network, config)
 inspector = engine.create_engine_inspector()
 # Row major means channel first, channel major means channel last.
 print('trt_engine layer_info:\n{}'.format(
     inspector.get_engine_information(trt.LayerInformationFormat.JSON)
     ))
+
+timing_cache = config.get_timing_cache()
+with timing_cache.serialize() as buffer:
+    with open(TIMING_CACHE_FILE, "wb") as f:
+        f.write(buffer)
 
 context = engine.create_execution_context()
 
