@@ -16,7 +16,7 @@ input_tensor = torch.randn(N, IC, D, H, W, dtype=torch.float16, device="cuda")
 if not DEPTHWISE:
     input_tensor = input_tensor.contiguous(
         memory_format=torch.channels_last_3d)
-conv3d = torch.nn.Conv3d(64, 64, kernel_size=3, padding=1,
+conv3d = torch.nn.Conv3d(IC, OC, kernel_size=(KD, KH, KW), padding=1,
                          bias=False, groups=IC if DEPTHWISE else 1).cuda().half()
 
 
