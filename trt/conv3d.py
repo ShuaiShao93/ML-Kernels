@@ -115,7 +115,3 @@ end.record()
 end.synchronize()
 ms = start.time_till(end)
 print("Time Elapsed", ms)
-
-stream.synchronize()
-
-print("DONE")
