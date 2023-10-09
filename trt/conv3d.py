@@ -29,13 +29,15 @@ OUTPUT_SIZE = N * OC * D * H * W
 KERNEL_SHAPE = (OC, 1, KD, KH, KW) if DEPTHWISE else (OC, IC, KD, KH, KW)
 
 EXPLICIT_BATCH = 1 << (int)(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH)
+ALLOWED_FORMAT = (1 << int(trt.TensorFormat.LINEAR)) | (
+    1 << int(trt.TensorFormat.CDHW32)) | (1 << int(trt.TensorFormat.DHWC8))
 
 trt_logger = trt.Logger(trt.Logger.VERBOSE)
 builder = trt.Builder(trt_logger)
 
 network = builder.create_network(EXPLICIT_BATCH)
 input = network.add_input(name="input", shape=INPUT_SHAPE, dtype=trt.float16)
-input.allowed_formats = 1 << int(trt.TensorFormat.DHWC8)
+input.allowed_formats = ALLOWED_FORMAT
 conv3d = network.add_convolution_nd(
     input, OC, [KD, KH, KW], np.ones(KERNEL_SHAPE, dtype=np.float16))
 conv3d.padding_nd = (1, 1, 1)
@@ -52,7 +54,7 @@ if DEPTHWISE:
 output = conv3d.get_output(0)
 output.name = "output"
 output.dtype = trt.DataType.HALF  # required
-output.allowed_formats = 1 << int(trt.TensorFormat.DHWC8)
+output.allowed_formats = ALLOWED_FORMAT
 network.mark_output(output)
 assert output.shape == OUTPUT_SHAPE
 
